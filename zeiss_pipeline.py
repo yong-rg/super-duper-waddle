@@ -15,8 +15,7 @@ val = 2
 
 for n in range(len(urls)):
     name = 'amz'
-    print(f'Starting run {n}...extracting data for:')
-    print(name)
+    print(f'Starting run {n}...')
 
     u = f'{urls[n]}/export?format=xlsx'
 
@@ -40,11 +39,12 @@ for n in range(len(urls)):
         print(f'Name updated to {name}')
         
         links = df.URL
+        print(links)
         asin_url = []
 
         # Loop through URL column
         for l in links:
-            asin = re.findall(r'(?<=\/)[A-Za-z0-9]{10}', l)
+            asin = re.findall(r'(?<=\/dp\/)[A-Za-z0-9]{10}', l)
             asin_url.append(asin[0])
 
         # print('ASINs: ', asin_url)
@@ -59,53 +59,115 @@ for n in range(len(urls)):
     val += 1
 
 
-# Create view 'google_agg' for Google data
+# Create view for All Google Data
 duckdb.execute("""
                 CREATE OR REPLACE VIEW google_agg AS
                 SELECT DISTINCT
                     g.Campaign as campaign,
+                    g."Ad Group" as ad_group,
+                    g."Ad Group Status" as ad_group_status,
                     ROUND(SUM(g.Cost), 2) as cost,
                     SUM(g.Impressions) as impr,
                     SUM(g.Clicks) as clicks,
                     ROUND(AVG(g.CPC), 2) as cpc,
                 FROM google as g
-                GROUP BY g.campaign
+                GROUP BY g.campaign, g."Ad Group", g."Ad Group Status"
                 ORDER BY g.campaign ASC
 """)
 
-# Create view 'amz_asin' for AMZ ASIN data
+# Create view for All AMZ ASIN Data
 duckdb.execute("""
                 CREATE OR REPLACE VIEW asin_agg AS
                 SELECT DISTINCT
                     a.ASIN,
-                    a.Campaign,
                     ROUND(SUM(a.Sales), 2) as sales
                 FROM amz as a
-                GROUP BY a.ASIN, a.Campaign
+                GROUP BY a.ASIN
                 ORDER BY a.ASIN ASC
 """)
 
-
-# Join Google campaign data + AMZ sales data
+# Create view for All Data
 duckdb.execute("""
                 CREATE OR REPLACE VIEW all_data AS
+                WITH DistinctCosts AS (
+                    SELECT DISTINCT g.cost, g.Campaign
+                    FROM google_agg g
+                ),
+                Summary AS (
+                    SELECT
+                        ROUND(SUM(DISTINCT DistinctCosts.cost), 2) as total_cost,
+                        ROUND(SUM(DISTINCT a.Sales), 2) as total_sales
+                FROM DistinctCosts
+                LEFT JOIN amz a
+                    ON DistinctCosts.Campaign = a.Campaign
+                )
+                SELECT 
+                    total_cost,
+                    total_sales,
+                    ROUND((total_sales / total_cost), 2) as roas
+               FROM Summary
+               
+""")
+
+# Create view for All Campaign Data
+duckdb.execute("""
+                CREATE OR REPLACE VIEW campaign_data AS
                 SELECT
                     g.campaign,
-                    ROUND(g.cost, 2),
-                    CAST(g.clicks as INT) clicks,
-                    g.cpc,
-                    CAST(SUM(a.DPV) as INT) as dpv,
-                    CAST(SUM(a.ATC) as INT) as atc,
-                    CAST(SUM(a.Purchases) as INT) as purchases,
-                    ROUND(SUM(a.Sales), 2) as sales
+                    ROUND(SUM(DISTINCT g.cost), 2) as cost,
+                    SUM(DISTINCT g.clicks) as clicks,
+                    ROUND(SUM(DISTINCT g.cost) / SUM(DISTINCT g.clicks), 2) as cpc, -- not accurate
+                    SUM(DISTINCT a.DPV) as dpv,
+                    SUM(DISTINCT a.ATC) as atc,
+                    SUM(DISTINCT a.Purchases) as purchases,
+                    ROUND(SUM(DISTINCT a.Sales), 2) as sales,
+                    ROUND((SUM(DISTINCT a.Sales) / SUM(DISTINCT g.cost)), 2) as ROAS
                FROM google_agg g
                LEFT JOIN amz a
-               ON g.Campaign = a.Campaign
-               GROUP BY g.campaign, g.cost, g.clicks, g.cpc,
+                ON g.Campaign = a.Campaign
+               GROUP BY g.campaign,
                ORDER BY g.campaign ASC
 """)
 
+# Create view for All Ad Group Data
+duckdb.execute("""
+                CREATE OR REPLACE VIEW ad_group_data AS
+                WITH DistinctGoogle AS (
+                    SELECT DISTINCT g.Cost, g.Campaign, g.ad_group, g.ad_group_status
+                    FROM google_agg g
+               ),
+                Summary AS (
+                    SELECT
+                        DistinctGoogle.ad_group,
+                        ROUND(MAX(DistinctGoogle.Cost), 2) as total_cost,
+                        MAX(a.DPV) as dpv,
+                        MAX(a.ATC) as atc,
+                        MAX(a.Purchases) as purchases,
+                        ROUND(MAX(a.Sales), 2) as sales,
+                    FROM DistinctGoogle
+                    LEFT JOIN amz a
+                        ON DistinctGoogle.Campaign = a.Campaign
+                    WHERE DistinctGoogle.ad_group_status == true
+                    GROUP BY DistinctGoogle.ad_group
+               )
+                SELECT
+                    *,
+                    ROUND(Summary.sales / Summary.total_cost, 2) as ROAS
+                FROM Summary 
+""")
+
 # Check table values in console
-duckdb.sql("SELECT * FROM google_agg").show()
+print('All Data')
+duckdb.sql("SELECT * FROM all_data").show()
+
+print('google Agg')
+duckdb.sql("SELECT * FROM google_agg ").show()
+
+print('ASIN Agg')
 duckdb.sql("SELECT * FROM asin_agg").show()
-duckdb.sql("SELECT * FROM alL_data").show()
+
+print('Google Campaign Data')
+duckdb.sql("SELECT * FROM campaign_data").show()
+
+print('Google Ad Group Data')
+duckdb.sql("SELECT * FROM ad_group_data ORDER BY ad_group ASC").show()
