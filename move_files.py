@@ -43,14 +43,8 @@ def archive_gdrive(gdrive):
     for g in g_files:
         src = os.path.join(gdrive, g)
         archive = os.path.join(gdrive,'archive')
-        archive_file = os.path.join(archive, g)
-
-        if os.path.exists(archive_file):
-            os.remove(archive_file)
-            print(f'{g} already exists in archive...deleting file instead!')
-        else:
-            shutil.move(src, archive, copy_function=shutil.copy2)
-            print(f'moving {g} to {archive}!')
+        shutil.move(src, archive)
+        print(f'moving {g} to {archive}!')
 
 # Run
 archive_gdrive(gdrive)

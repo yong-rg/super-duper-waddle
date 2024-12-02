@@ -11,6 +11,11 @@ urls = [amz, google]
 duckdb.sql(f"""DROP TABLE IF EXISTS amz""")
 duckdb.sql(f"""DROP TABLE IF EXISTS google""")
 
+# Install DuckDB extensions
+con = duckdb.connect()
+con.install_extension("spatial")
+con.load_extension("spatial")
+
 val = 2
 
 for n in range(len(urls)):
@@ -26,7 +31,7 @@ for n in range(len(urls)):
     num_sheets = len(sheet_names)
 
     # Select desired sheet via index
-    df = pd.read_excel(xl,val)
+    df = pd.read_excel(xl, val)
 
     # Convert to dataframe
     df = pd.DataFrame(df)
@@ -74,6 +79,25 @@ duckdb.execute("""
                 GROUP BY g.campaign, g."Ad Group", g."Ad Group Status"
                 ORDER BY g.campaign ASC
 """)
+
+# Create view for AMZ Campaign Data
+duckdb.execute("""
+                CREATE OR REPLACE VIEW amz_campaign AS
+                SELECT DISTINCT
+                    a.Campaign,
+                    ROUND(SUM(a.Sales), 2) as sales
+                FROM amz as a
+                GROUP BY a.Campaign
+""")
+
+# Create view for AMZ Ad Group Data
+# duckdb.execute("""
+#                 CREATE OR REPLACE VIEW amz_campaign AS
+#                 SELECT DISTINCT
+#                     *
+#                 FROM "ad group" as a
+#                 LIMIT 10
+# """)
 
 # Create view for All AMZ ASIN Data
 duckdb.execute("""
@@ -157,17 +181,24 @@ duckdb.execute("""
 """)
 
 # Check table values in console
-print('All Data')
-duckdb.sql("SELECT * FROM all_data").show()
+# print('All Data')
+# duckdb.sql("SELECT * FROM all_data").show()
+# duckdb.sql("SELECT SUM(sales) FROM amz").show()
 
-print('google Agg')
-duckdb.sql("SELECT * FROM google_agg ").show()
+# duckdb.execute("COPY (SELECT * FROM all_data) TO 'C:/Users/24G/Documents/Python Scripts/get_zeiss_data/export/all_data.csv' WITH (FORMAT 'CSV')")
 
-print('ASIN Agg')
-duckdb.sql("SELECT * FROM asin_agg").show()
+# print('Google Agg')
+# duckdb.sql("SELECT * FROM google_agg ").show()
 
-print('Google Campaign Data')
-duckdb.sql("SELECT * FROM campaign_data").show()
+# print('ASIN Agg')
+# duckdb.sql("SELECT * FROM asin_agg").show()
+# duckdb.sql("SELECT * FROM asin_agg WHERE ASIN = 'B0030E4UIQ'").show()
 
-print('Google Ad Group Data')
-duckdb.sql("SELECT * FROM ad_group_data ORDER BY ad_group ASC").show()
+# print('Google Campaign Data')
+# duckdb.sql("SELECT * FROM campaign_data").show()
+
+# print('Google Ad Group Data')
+# duckdb.sql("SELECT * FROM ad_group_data ORDER BY ad_group ASC").show()
+
+# duckdb.sql('SELECT * FROM ad group').show()
+# duckdb.sql('SELECT * FROM amz_campaign').show()
