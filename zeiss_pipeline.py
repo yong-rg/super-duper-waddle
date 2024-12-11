@@ -181,21 +181,21 @@ duckdb.execute("""
 """)
 
 # Check table values in console
-# print('All Data')
-# duckdb.sql("SELECT * FROM all_data").show()
-# duckdb.sql("SELECT SUM(sales) FROM amz").show()
+print('All Data')
+duckdb.sql("SELECT * FROM all_data").show()
+duckdb.sql("SELECT SUM(sales) FROM amz").show()
 
 # duckdb.execute("COPY (SELECT * FROM all_data) TO 'C:/Users/24G/Documents/Python Scripts/get_zeiss_data/export/all_data.csv' WITH (FORMAT 'CSV')")
 
-# print('Google Agg')
-# duckdb.sql("SELECT * FROM google_agg ").show()
+print('Google Agg')
+duckdb.sql("SELECT * FROM google_agg ").show()
 
 # print('ASIN Agg')
 # duckdb.sql("SELECT * FROM asin_agg").show()
 # duckdb.sql("SELECT * FROM asin_agg WHERE ASIN = 'B0030E4UIQ'").show()
 
-# print('Google Campaign Data')
-# duckdb.sql("SELECT * FROM campaign_data").show()
+print('Google Campaign Data')
+duckdb.sql("SELECT * FROM campaign_data").show()
 
 # print('Google Ad Group Data')
 # duckdb.sql("SELECT * FROM ad_group_data ORDER BY ad_group ASC").show()
