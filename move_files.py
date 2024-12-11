@@ -28,7 +28,7 @@ def get_file_names(dl_files, downloads, date, name, gdrive):
         
         file_time = os.path.getctime(file_path)
         created_at = date.fromtimestamp(file_time)
-        if name in file and created_at.month >= date.month:
+        if name in file and created_at >= date:
             attr_files.append(file_path) #file_path for targeting whole file path
             shutil.copy(file_path, gdrive)
             print(f'copying {file} to {gdrive}!')
@@ -43,6 +43,10 @@ def archive_gdrive(gdrive):
     for g in g_files:
         src = os.path.join(gdrive, g)
         archive = os.path.join(gdrive,'archive')
+
+        if os.path.isfile(os.path.join(archive, g)):
+            os.remove(os.path.join(archive, g))
+
         shutil.move(src, archive)
         print(f'moving {g} to {archive}!')
 
